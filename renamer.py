@@ -17,7 +17,7 @@ def rename_images(directory):
     # Rename each image file
     for i, filename in enumerate(image_files, start=1):
         # Construct the new filename
-        new_filename = f"ai_img_{i}.jpg"
+        new_filename = f"real_test_img_{i}.jpg"
         
         # Construct the full paths of the old and new files
         old_path = os.path.join(directory, filename)
@@ -31,4 +31,4 @@ def rename_images(directory):
             print(f"Error renaming '{filename}': {e}")
 
 
-rename_images(r"C:\Users\Mihalis\Desktop\NCSR AI\deep learning project\data\AiArtData")
+rename_images(r"C:\Users\Mihalis\Desktop\NCSR AI\deep learning project\AI-Generated-Images-vs-Real-Images-Classification\data\test\real_test")
