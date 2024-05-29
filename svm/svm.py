@@ -7,7 +7,7 @@ from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_sc
 import matplotlib.pyplot as plt
 
 # Load your dataset
-df = pd.read_csv(r'C:\Users\Mihalis\Desktop\NCSR AI\deep learning project\features.csv')
+df = pd.read_csv(r'C:\Users\Mihalis\Desktop\NCSR AI\deep learning project\AI-Generated-Images-vs-Real-Images-Classification\data\features.csv')
 
 X = df.drop('label', axis = 1).values
 y = df['label'].values
