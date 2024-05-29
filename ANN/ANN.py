@@ -58,6 +58,10 @@ class myANN(nn.Module):
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print(f'Training on device: {device}')
 
+model_prints = myANN().to(device)
+
+print('Num params: ',sum(p.numel() for p in model_prints.parameters()))
+print(summary(model_prints, (3, 128, 128), 32))
 
 num_epochs = 1
 batch_size = 32
