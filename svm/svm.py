@@ -99,7 +99,7 @@ print("Confusion Matrix (Validation Set):")
 print(conf_matrix)
 
 #Train in the whole training set
-svm_classifier.fit(X_train_fold, y_train_fold)
+svm_classifier.fit(X_train, y_train)
 
 # Evaluate on the test set
 y_test_pred = svm_classifier.predict(X_test)
