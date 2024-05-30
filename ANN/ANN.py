@@ -1,218 +1,215 @@
+import time
 import torch
 import torch.nn as nn
 import torch.optim as optim
 from torchvision import datasets, transforms
-from torch.utils.data import DataLoader, SubsetRandomSampler
+from torch.utils.data import DataLoader, random_split, ConcatDataset
 from torchsummary import summary
-from sklearn.model_selection import KFold
-from sklearn.metrics import confusion_matrix, precision_recall_fscore_support, accuracy_score
-import numpy as np
+from sklearn.metrics import confusion_matrix, classification_report, roc_auc_score, roc_curve
 import matplotlib.pyplot as plt
-from itertools import cycle
-from PIL import Image
+import seaborn as sns
+import numpy as np
 
-# Transformations
+generator1 = torch.Generator().manual_seed(42)
+
+# Define image transformations
 transform = transforms.Compose([
-    transforms.Grayscale(),
-    transforms.Resize((32, 32)),
-    transforms.ToTensor(),
-    transforms.Normalize((0.5), (0.5)) 
+    transforms.Resize((32, 32)),  # Resize images
+    transforms.ToTensor(),  # Convert images to PyTorch tensors and normalize to [0, 1]
+    transforms.Normalize((0.5,), (0.5,)) # normalize the image
 ])
 
-# Load dataset
-dataset = datasets.ImageFolder(root=r'C:\Users\Mihalis\Desktop\NCSR AI\deep learning project\AI-Generated-Images-vs-Real-Images-Classification\data\train_val', transform=transform)
+# Load original dataset
+original_dataset = datasets.ImageFolder(root=r'C:\Users\Mihalis\Desktop\NCSR AI\deep learning project\AI-Generated-Images-vs-Real-Images-Classification\data\train_val', transform=transform)
 
-# ANN
+# Load augmented dataset
+#augmented_dataset = datasets.ImageFolder(root=r'C:\Users\Mihalis\Desktop\NCSR AI\deep learning project\AI-Generated-Images-vs-Real-Images-Classification\data\augmentation_train_val', transform=transform)
+
+# Concatenate datasets
+#combined_dataset = ConcatDataset([original_dataset, augmented_dataset])
+
+# Split combined dataset into training and validation sets
+train_size = int(0.8 * len(original_dataset))
+val_size = len(original_dataset) - train_size
+train_dataset, val_dataset = random_split(original_dataset, [train_size, val_size], generator=generator1)
+
+train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True)
+val_loader = DataLoader(val_dataset, batch_size=32, shuffle=False)
+
 class myANN(nn.Module):
-    def __init__(self, num_classes=len(dataset.classes)):
+    def __init__(self, num_classes=2):
         super(myANN, self).__init__()
-        self.layer1 = nn.Sequential(
-            nn.Conv2d(1, 6, kernel_size=5, stride=1, padding=0),
-            nn.BatchNorm2d(6),
-            nn.ReLU(),
-            nn.MaxPool2d(kernel_size=2, stride=2)
-        )
-        self.layer2 = nn.Sequential(
-            nn.Conv2d(6, 16, kernel_size=5, stride=1, padding=0),
-            nn.BatchNorm2d(16),
-            nn.ReLU(),
-            nn.MaxPool2d(kernel_size=2, stride=2)
-        )
-        self.fc = nn.Linear(16 * 5 * 5, 120)
-        self.relu = nn.ReLU()
-        self.fc1 = nn.Linear(120, 84)
+        self.conv1 = nn.Conv2d(3, 32, kernel_size=3, stride=1, padding=1)
+        self.bn1 = nn.BatchNorm2d(32)
         self.relu1 = nn.ReLU()
-        self.fc2 = nn.Linear(84, num_classes)
+        self.pool1 = nn.MaxPool2d(kernel_size=2, stride=2)
+
+        self.conv2 = nn.Conv2d(32, 64, kernel_size=3, stride=1, padding=1)
+        self.bn2 = nn.BatchNorm2d(64)
+        self.relu2 = nn.ReLU()
+        self.pool2 = nn.MaxPool2d(kernel_size=2, stride=2)
+
+        self.conv3 = nn.Conv2d(64, 128, kernel_size=3, stride=1, padding=1)
+        self.bn3 = nn.BatchNorm2d(128)
+        self.relu3 = nn.ReLU()
+        self.pool3 = nn.MaxPool2d(kernel_size=2, stride=2)
+
+        self.fc1 = nn.Linear(128 * 4 * 4, 512)
+        self.relu4 = nn.ReLU()
+        self.dropout1 = nn.Dropout(0.5)
+
+        self.fc2 = nn.Linear(512, 256)
+        self.relu5 = nn.ReLU()
+        self.dropout2 = nn.Dropout(0.5)
+
+        self.fc3 = nn.Linear(256, num_classes)
         
     def forward(self, x):
-        out = self.layer1(x)
-        out = self.layer2(out)
-        out = out.reshape(out.size(0), -1)
-        out = self.fc(out)
-        out = self.relu(out)
-        out = self.fc1(out)
-        out = self.relu1(out)
-        out = self.fc2(out)
-        return out
+        x = self.conv1(x)
+        x = self.bn1(x)
+        x = self.relu1(x)
+        x = self.pool1(x)
+
+        x = self.conv2(x)
+        x = self.bn2(x)
+        x = self.relu2(x)
+        x = self.pool2(x)
+
+        x = self.conv3(x)
+        x = self.bn3(x)
+        x = self.relu3(x)
+        x = self.pool3(x)
+
+        x = x.view(x.size(0), -1)  # Flatten the input
+        x = self.fc1(x)
+        x = self.relu4(x)
+        x = self.dropout1(x)
+
+        x = self.fc2(x)
+        x = self.relu5(x)
+        x = self.dropout2(x)
+
+        x = self.fc3(x)
+        return x
     
+# Check for GPU availability
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print(f'Training on device: {device}')
 
-model_prints = myANN().to(device)
+# Instantiate the model, loss function, and optimizer
+model = myANN().to(device)  # Move the model to the GPU
+criterion = nn.CrossEntropyLoss()
+optimizer = optim.Adam(model.parameters(), lr=0.001)
 
-print('Num params: ',sum(p.numel() for p in model_prints.parameters()))
-print(summary(model_prints, (3, 128, 128), 32))
+print('Num params: ', sum(p.numel() for p in model.parameters()))
+print(summary(model, (3, 32, 32), 32))
 
-num_epochs = 1
-batch_size = 32
-learning_rate = 0.001
-k_folds = 2
+# Training loop
+num_epochs = 15
 
-kfold = KFold(n_splits=k_folds, shuffle=True)
+train_losses = []
+val_losses = []
 
-accuracy_list = []
-precision_list = []
-recall_list = []
-f1_list = []
-train_loss_list = []
-val_loss_list = []
-confusion_matrices = []
-all_labels = []
-all_preds = []
+start_time_train = time.time()
+for epoch in range(num_epochs):
+    model.train()
+    running_train_loss = 0.0
+    for images, labels in train_loader:
+        images, labels = images.to(device), labels.to(device)  # Move data to the GPU
 
-#============
-#  Training
-#============
+        optimizer.zero_grad()  # Zero the parameter gradients
+        outputs = model(images)  # Forward pass
+        loss = criterion(outputs, labels)  # Compute loss
+        loss.backward()  # Backward pass
+        optimizer.step()  # Optimize the model
 
-for fold, (train_ids, val_ids) in enumerate(kfold.split(dataset)):
+        running_train_loss += loss.item()
 
-    print('--------------------------------')
-    print(f'FOLD {fold + 1}')
-    
-    train_subsampler = SubsetRandomSampler(train_ids)
-    val_subsampler = SubsetRandomSampler(val_ids)
-
-    train_loader = DataLoader(dataset, batch_size=batch_size, sampler=train_subsampler)
-    val_loader = DataLoader(dataset, batch_size=batch_size, sampler=val_subsampler)
-
-    model = myANN().to(device)
-
-    optimizer = optim.Adam(model.parameters(), lr=learning_rate)
-
-    criterion = nn.CrossEntropyLoss()
-    
-    fold_train_loss = []
-    fold_val_loss = []
-    
-    # Training loop
-    for epoch in range(num_epochs):
-        model.train()
-        running_train_loss = 0.0
-        for images, labels in train_loader:
-            images, labels = images.to(device), labels.to(device)
-            
-            optimizer.zero_grad()
-            outputs = model(images)
-            loss = criterion(outputs, labels)
-            loss.backward()
-            optimizer.step()
-            
-            running_train_loss += loss.item()
-        
-        fold_train_loss.append(running_train_loss / len(train_loader))
-
-        model.eval()
-        running_val_loss = 0.0
-        correct = 0
-        total = 0
-        
-        with torch.no_grad():
-            for images, labels in val_loader:
-                images, labels = images.to(device), labels.to(device)
-                outputs = model(images)
-                loss = criterion(outputs, labels)
-                running_val_loss += loss.item()
-                _, predicted = torch.max(outputs, 1)
-                total += labels.size(0)
-                correct += (predicted == labels).sum().item()
-
-        fold_val_loss.append(running_val_loss / len(val_loader))
-
-        print(f'Epoch {epoch + 1}/{num_epochs}, '
-              f'Train Loss: {running_train_loss / len(train_loader)}, '
-              f'Validation Loss: {running_val_loss / len(val_loader)}, '
-              f'Accuracy: {100 * correct / total}%')
-
-    train_loss_list.append(np.mean(fold_train_loss))
-    val_loss_list.append(np.mean(fold_val_loss))
-
-    # Evaluation for this fold
-    all_fold_labels = []
-    all_fold_preds = []
+    # Validation step
     model.eval()
+    running_val_loss = 0.0
+    correct = 0
+    total = 0
+    all_labels = []
+    all_preds = []
+    all_probs = []
     with torch.no_grad():
         for images, labels in val_loader:
             images, labels = images.to(device), labels.to(device)
             outputs = model(images)
+            loss = criterion(outputs, labels)
+            running_val_loss += loss.item()
             _, predicted = torch.max(outputs, 1)
-            all_fold_labels.extend(labels.cpu().numpy())
-            all_fold_preds.extend(predicted.cpu().numpy())
+            total += labels.size(0)
+            correct += (predicted == labels).sum().item()
+            all_labels.extend(labels.cpu().numpy())
+            all_preds.extend(predicted.cpu().numpy())
+            all_probs.extend(outputs.softmax(dim=1)[:, 1].cpu().numpy())  # Assuming binary classification
 
-    # Calculate metrics
-    accuracy = accuracy_score(all_fold_labels, all_fold_preds)
-    precision, recall, f1, _ = precision_recall_fscore_support(all_fold_labels, all_fold_preds, average='weighted')
-    
-    accuracy_list.append(accuracy)
-    precision_list.append(precision)
-    recall_list.append(recall)
-    f1_list.append(f1)
-    confusion_matrices.append(confusion_matrix(all_fold_labels, all_fold_preds))
-    all_labels.extend(all_fold_labels)
-    all_preds.extend(all_fold_preds)
+    accuracy = 100 * correct / total
+    train_losses.append(running_train_loss / len(train_loader))
+    val_losses.append(running_val_loss / len(val_loader))
 
-# Calculate mean and std for metrics
-mean_accuracy = np.mean(accuracy_list)
-std_accuracy = np.std(accuracy_list)
-mean_precision = np.mean(precision_list)
-std_precision = np.std(precision_list)
-mean_recall = np.mean(recall_list)
-std_recall = np.std(recall_list)
-mean_f1 = np.mean(f1_list)
-std_f1 = np.std(f1_list)
-mean_train_loss = np.mean(train_loss_list)
-std_train_loss = np.std(train_loss_list)
-mean_val_loss = np.mean(val_loss_list)
-std_val_loss = np.std(val_loss_list)
+    print(f'Epoch {epoch + 1}/{num_epochs}, '
+          f'Train Loss: {train_losses[-1]}, '
+          f'Validation Loss: {val_losses[-1]}, '
+          f'Accuracy: {accuracy}%')
 
-print(f'Accuracy: {mean_accuracy:.2f} ± {std_accuracy:.2f}')
-print(f'Precision: {mean_precision:.2f} ± {std_precision:.2f}')
-print(f'Recall: {mean_recall:.2f} ± {std_recall:.2f}')
-print(f'F1 Score: {mean_f1:.2f} ± {std_f1:.2f}')
-print(f'Train Loss: {mean_train_loss:.4f} ± {std_train_loss:.4f}')
-print(f'Validation Loss: {mean_val_loss:.4f} ± {std_val_loss:.4f}')
+# Time
+end_time_train = time.time()
+elapsed_time_train = end_time_train - start_time_train
+hours_train, rem_train = divmod(elapsed_time_train, 3600)
+minutes_train, seconds_train = divmod(rem_train, 60)
+print(f"Training completed in :  {int(hours_train)}h {int(minutes_train)}m {int(seconds_train)}s")
+
+# Plot training and validation loss
+plt.figure()
+plt.plot(range(1, num_epochs + 1), train_losses, label='Train Loss')
+plt.plot(range(1, num_epochs + 1), val_losses, label='Validation Loss')
+plt.xlabel('Epochs')
+plt.ylabel('Loss')
+plt.title('Training and Validation Loss')
+plt.legend()
+plt.show()
+
+# Final results
+report = classification_report(all_labels, all_preds, target_names=original_dataset.classes, output_dict=True)
+cm = confusion_matrix(all_labels, all_preds)
+auc = roc_auc_score(all_labels, all_probs)
+fpr, tpr, _ = roc_curve(all_labels, all_probs)
+
+print(f'Final Results: '
+      f'Accuracy: {accuracy}%, '
+      f'Precision: {report["weighted avg"]["precision"]}, '
+      f'Recall: {report["weighted avg"]["recall"]}, '
+      f'F1 Score: {report["weighted avg"]["f1-score"]}, '
+      f'AUC: {auc}')
+
+# Print confusion matrix
+print('Confusion Matrix:')
+print(cm)
 
 # Plot confusion matrix
-cm = np.sum(confusion_matrices, axis=0)
 plt.figure(figsize=(10, 7))
-plt.imshow(cm, interpolation='nearest', cmap=plt.cm.Blues)
+sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', xticklabels=original_dataset.classes, yticklabels=original_dataset.classes)
+plt.xlabel('Predicted')
+plt.ylabel('True')
 plt.title('Confusion Matrix')
-plt.colorbar()
-tick_marks = np.arange(len(dataset.classes))
-plt.xticks(tick_marks, dataset.classes, rotation=45)
-plt.yticks(tick_marks, dataset.classes)
+plt.show()
 
-thresh = cm.max() / 2.
-for i, j in np.ndindex(cm.shape):
-    plt.text(j, i, format(cm[i, j], 'd'),
-             horizontalalignment="center",
-             color="white" if cm[i, j] > thresh else "black")
-
-plt.tight_layout()
-plt.ylabel('True label')
-plt.xlabel('Predicted label')
+# Plot ROC curve
+plt.figure()
+plt.plot(fpr, tpr, color='darkorange', lw=2, label='ROC curve (area = %0.2f)' % auc)
+plt.plot([0, 1], [0, 1], color='navy', lw=2, linestyle='--')
+plt.xlim([0.0, 1.0])
+plt.ylim([0.0, 1.05])
+plt.xlabel('False Positive Rate')
+plt.ylabel('True Positive Rate')
+plt.title('Receiver Operating Characteristic')
+plt.legend(loc="lower right")
 plt.show()
 
 # Save the trained model
-model_save_path = (r'C:\Users\Mihalis\Desktop\NCSR AI\deep learning project\AI-Generated-Images-vs-Real-Images-Classification\model_myANN.pt')
+model_save_path = r'C:\Users\Mihalis\Desktop\NCSR AI\deep learning project\AI-Generated-Images-vs-Real-Images-Classification\model_myANN.pt'
 torch.save(model.state_dict(), model_save_path)
 print(f'Model saved to {model_save_path}')
