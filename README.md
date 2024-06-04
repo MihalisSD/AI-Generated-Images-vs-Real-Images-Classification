@@ -30,7 +30,7 @@ Binary Classification of AI Generated Art versus Real Image art by using Deep Le
   - Implementation of deep learning models for image classification.
   - Utilization of convolutional neural networks (CNNs) to differentiate between AI-generated and real images.
   - Evaluation of model performance using standard classification metrics.
-  - Comparison with baseline classifiers such as Random Forest, SVM and a simpler CNN architecture LeNet-5.
+  - Comparison with baseline classifiers such as SVM and a simpler CNN architecture LeNet-5.
   - The dataset used is:
     - [AI Generated Images vs Real Images](https://www.kaggle.com/datasets/cashbowman/ai-generated-images-vs-real-images)
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
