@@ -21,6 +21,12 @@ test_df = pd.read_csv(r'C:\Users\Mihalis\Desktop\NCSR AI\deep learning project\A
 X_test = test_df.drop('label', axis=1).values
 y_test = test_df['label'].values
 
+# Load extra test set
+my_test_df = pd.read_csv(r'C:\Users\Mihalis\Desktop\NCSR AI\deep learning project\AI-Generated-Images-vs-Real-Images-Classification\data\my_test_features.csv')
+
+X_my_test = my_test_df.drop('label', axis=1).values
+y_my_test = my_test_df['label'].values
+
 svm_classifier = SVC(kernel='linear', probability=True)
 
 # Set up k-folds
@@ -98,7 +104,7 @@ print(f"Mean F1 Score: {np.mean(f1_scores):.2f} ± {np.std(f1_scores):.2f}")
 print("Confusion Matrix (Validation Set):")
 print(conf_matrix)
 
-#Train in the whole training set
+# Train on the whole training set
 svm_classifier.fit(X_train, y_train)
 
 # Evaluate on the test set
@@ -137,3 +143,40 @@ print(f"Test Recall: {test_recall:.2f}")
 print(f"Test F1 Score: {test_f1:.2f}")
 print("Confusion Matrix (Test Set):")
 print(test_conf_matrix)
+
+# Evaluate on the extra test set
+y_my_test_pred = svm_classifier.predict(X_my_test)
+y_my_test_prob = svm_classifier.predict_proba(X_my_test)[:, 1]
+
+# Calculate metrics for extra test set
+my_test_accuracy = accuracy_score(y_my_test, y_my_test_pred)
+my_test_precision = precision_score(y_my_test, y_my_test_pred)
+my_test_recall = recall_score(y_my_test, y_my_test_pred)
+my_test_f1 = f1_score(y_my_test, y_my_test_pred)
+my_test_conf_matrix = confusion_matrix(y_my_test, y_my_test_pred)
+
+# Calculate ROC curve and AUC for extra test set
+my_test_fpr, my_test_tpr, _ = roc_curve(y_my_test, y_my_test_prob)
+my_test_roc_auc = auc(my_test_fpr, my_test_tpr)
+plt.plot(my_test_fpr, my_test_tpr, color='b', label=f'My Test ROC (AUC = {my_test_roc_auc:.2f})', lw=2, alpha=0.8)
+plt.plot([0, 1], [0, 1], linestyle='--', color='r', lw=2, alpha=0.8)
+plt.xlabel('False Positive Rate')
+plt.ylabel('True Positive Rate')
+plt.title('Receiver Operating Characteristic (My Test Set)')
+plt.legend(loc='lower right')
+plt.show()
+
+# Plot confusion matrix for extra test set
+sns.heatmap(my_test_conf_matrix, annot=True, fmt='g', cmap='Blues', xticklabels=labels, yticklabels=labels)
+plt.xlabel('Predicted label')
+plt.ylabel('True label')
+plt.title('Confusion Matrix (My Test Set)')
+plt.show()
+
+# Print metrics for extra test set
+print(f"My Test Accuracy: {my_test_accuracy:.2f}")
+print(f"My Test Precision: {my_test_precision:.2f}")
+print(f"My Test Recall: {my_test_recall:.2f}")
+print(f"My Test F1 Score: {my_test_f1:.2f}")
+print("Confusion Matrix (My Test Set):")
+print(my_test_conf_matrix)
