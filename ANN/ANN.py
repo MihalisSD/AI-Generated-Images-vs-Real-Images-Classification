@@ -14,55 +14,76 @@ generator1 = torch.Generator().manual_seed(42)
 
 # Define image transformations
 transform = transforms.Compose([
-    transforms.Resize((32, 32)),  # Resize images
+    transforms.Resize((256, 256)),  # Resize images
     transforms.ToTensor(),  # Convert images to PyTorch tensors and normalize to [0, 1]
-    transforms.Normalize((0.5,), (0.5,)) # normalize the image
+    transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)) # normalize the image
 ])
 
 # Load original dataset
 original_dataset = datasets.ImageFolder(root=r'C:\Users\Mihalis\Desktop\NCSR AI\deep learning project\AI-Generated-Images-vs-Real-Images-Classification\data\train_val', transform=transform)
 
 # Load augmented dataset
-#augmented_dataset = datasets.ImageFolder(root=r'C:\Users\Mihalis\Desktop\NCSR AI\deep learning project\AI-Generated-Images-vs-Real-Images-Classification\data\augmentation_train_val', transform=transform)
+augmented_dataset = datasets.ImageFolder(root=r'C:\Users\Mihalis\Desktop\NCSR AI\deep learning project\AI-Generated-Images-vs-Real-Images-Classification\data\augmentation_train_val', transform=transform)
 
 # Concatenate datasets
-#combined_dataset = ConcatDataset([original_dataset, augmented_dataset])
+combined_dataset = ConcatDataset([original_dataset, augmented_dataset])
 
 # Split combined dataset into training and validation sets
-train_size = int(0.8 * len(original_dataset))
-val_size = len(original_dataset) - train_size
-train_dataset, val_dataset = random_split(original_dataset, [train_size, val_size], generator=generator1)
+train_size = int(0.8 * len(combined_dataset))
+val_size = len(combined_dataset) - train_size
+train_dataset, val_dataset = random_split(combined_dataset, [train_size, val_size], generator=generator1)
 
-train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True)
-val_loader = DataLoader(val_dataset, batch_size=32, shuffle=False)
+train_loader = DataLoader(train_dataset, batch_size=64, shuffle=True)
+val_loader = DataLoader(val_dataset, batch_size=64, shuffle=False)
 
 class myANN(nn.Module):
     def __init__(self, num_classes=2):
         super(myANN, self).__init__()
-        self.conv1 = nn.Conv2d(3, 32, kernel_size=3, stride=1, padding=1)
+        self.conv1 = nn.Conv2d(3, 32, kernel_size=7, stride=1, padding=3) #256*256*32 same ----> 7x7 conv
         self.bn1 = nn.BatchNorm2d(32)
         self.relu1 = nn.ReLU()
-        self.pool1 = nn.MaxPool2d(kernel_size=2, stride=2)
+        self.pool1 = nn.MaxPool2d(kernel_size=2, stride=2) #128*128*32
 
-        self.conv2 = nn.Conv2d(32, 64, kernel_size=3, stride=1, padding=1)
+        self.conv2 = nn.Conv2d(32, 64, kernel_size=5, stride=1, padding=2) #same 128*128*64 -------> 5x5 conv
         self.bn2 = nn.BatchNorm2d(64)
         self.relu2 = nn.ReLU()
-        self.pool2 = nn.MaxPool2d(kernel_size=2, stride=2)
 
-        self.conv3 = nn.Conv2d(64, 128, kernel_size=3, stride=1, padding=1)
+        self.conv3 = nn.Conv2d(64, 128, kernel_size=5, stride=1, padding=2) #same 128*128*128
         self.bn3 = nn.BatchNorm2d(128)
         self.relu3 = nn.ReLU()
-        self.pool3 = nn.MaxPool2d(kernel_size=2, stride=2)
+        self.pool3 = nn.MaxPool2d(kernel_size=2, stride=2) # 64*64*128
 
-        self.fc1 = nn.Linear(128 * 4 * 4, 512)
+        self.conv4 = nn.Conv2d(128, 256, kernel_size=3, stride=1, padding=1) #64*64*256 --------> 3x3 conv
+        self.bn4 = nn.BatchNorm2d(256)
         self.relu4 = nn.ReLU()
-        self.dropout1 = nn.Dropout(0.5)
 
-        self.fc2 = nn.Linear(512, 256)
+        self.conv5 = nn.Conv2d(256, 362, kernel_size=3, stride=1, padding=1) #64*64*362
+        self.bn5 = nn.BatchNorm2d(362)
         self.relu5 = nn.ReLU()
-        self.dropout2 = nn.Dropout(0.5)
+        self.pool5 = nn.MaxPool2d(kernel_size=2, stride=2) # 32*32*362
 
-        self.fc3 = nn.Linear(256, num_classes)
+        self.conv6 = nn.Conv2d(362, 512, kernel_size=1, stride=1, padding=0) #32*32*512 ------> 1x1 conv 
+        self.bn6 = nn.BatchNorm2d(512)
+        self.relu6 = nn.ReLU()
+
+        self.conv7 = nn.Conv2d(512, 724, kernel_size=1, stride=1, padding=0) #32*32*724
+        self.bn7 = nn.BatchNorm2d(724)
+        self.relu7 = nn.ReLU()
+
+        self.conv8 = nn.Conv2d(724, 1024, kernel_size=1, stride=1, padding=0) #32*32*1024
+        self.bn8 = nn.BatchNorm2d(1024)
+        self.relu8 = nn.ReLU()
+        self.pool8 = nn.MaxPool2d(kernel_size=2, stride=2) # 16*16*1024
+
+        self.fc9 = nn.Linear(16*16*1024, 724)
+        self.relu9 = nn.ReLU()
+        self.dropout9 = nn.Dropout(0.5)
+
+        self.fc10 = nn.Linear(724, 516)
+        self.relu10 = nn.ReLU()
+        self.dropout10 = nn.Dropout(0.5)
+
+        self.fc11 = nn.Linear(516, num_classes)
         
     def forward(self, x):
         x = self.conv1(x)
@@ -73,25 +94,46 @@ class myANN(nn.Module):
         x = self.conv2(x)
         x = self.bn2(x)
         x = self.relu2(x)
-        x = self.pool2(x)
 
         x = self.conv3(x)
         x = self.bn3(x)
         x = self.relu3(x)
         x = self.pool3(x)
 
-        x = x.view(x.size(0), -1)  # Flatten the input
-        x = self.fc1(x)
+        x = self.conv4(x)
+        x = self.bn4(x)
         x = self.relu4(x)
-        x = self.dropout1(x)
 
-        x = self.fc2(x)
+        x = self.conv5(x)
+        x = self.bn5(x)
         x = self.relu5(x)
-        x = self.dropout2(x)
+        x = self.pool5(x)
 
-        x = self.fc3(x)
+        x = self.conv6(x)
+        x = self.bn6(x)
+        x = self.relu6(x)
+
+        x = self.conv7(x)
+        x = self.bn7(x)
+        x = self.relu7(x)
+
+        x = self.conv8(x)
+        x = self.bn8(x)
+        x = self.relu8(x)
+        x = self.pool8(x)
+
+        x = x.view(x.size(0), -1)  # Flatten the input
+        x = self.fc9(x)
+        x = self.relu9(x)
+        x = self.dropout9(x)
+
+        x = self.fc10(x)
+        x = self.relu10(x)
+        x = self.dropout10(x)
+
+        x = self.fc11(x)
         return x
-    
+
 # Check for GPU availability
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print(f'Training on device: {device}')
@@ -102,10 +144,10 @@ criterion = nn.CrossEntropyLoss()
 optimizer = optim.Adam(model.parameters(), lr=0.001)
 
 print('Num params: ', sum(p.numel() for p in model.parameters()))
-print(summary(model, (3, 32, 32), 32))
+print(summary(model, (3, 256, 256), 64))
 
 # Training loop
-num_epochs = 15
+num_epochs = 50
 
 train_losses = []
 val_losses = []
