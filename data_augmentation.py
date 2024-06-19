@@ -44,7 +44,6 @@ def data_augmentation(input_dir, output_dir):  #Augmentations
         class_name = class_name_mapping[label]
         class_dir = os.path.join(output_dir, class_name)
         
-        # Ensure class subdirectory exists
         if not os.path.exists(class_dir):
             os.makedirs(class_dir)
         
