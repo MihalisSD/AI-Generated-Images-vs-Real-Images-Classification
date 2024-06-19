@@ -26,8 +26,12 @@ combined_dataset = ConcatDataset([original_dataset, augmented_dataset])
 # Create DataLoader for the combined dataset
 dataloader = DataLoader(combined_dataset, batch_size=32, shuffle=False)
 
+# Load the my_test dataset
+my_test_dataset = datasets.ImageFolder(root=r'C:\Users\Mihalis\Desktop\NCSR AI\deep learning project\AI-Generated-Images-vs-Real-Images-Classification\data\my_test', transform=transform)
+my_test_dataloader = DataLoader(my_test_dataset, batch_size=32, shuffle=False)
+
 # Load the test dataset
-test_dataset = datasets.ImageFolder(root=r'C:\Users\Mihalis\Desktop\NCSR AI\deep learning project\AI-Generated-Images-vs-Real-Images-Classification\data\test', transform=transform)
+test_dataset = datasets.ImageFolder(root=r'C:\Users\Mihalis\Desktop\NCSR AI\deep learning project\AI-Generated-Images-vs-Real-Images-Classification\data\test_data', transform=transform)
 test_dataloader = DataLoader(test_dataset, batch_size=32, shuffle=False)
 
 # Load a pre-trained ResNet model
@@ -50,6 +54,7 @@ def extract_features(dataloader, model):
     labels = np.concatenate(labels, axis=0)
     return features, labels
 
+#---------------------------------
 # Start the timer for training set
 start_time_train = time.time()
 
@@ -73,8 +78,35 @@ print(f"Training set class distribution: {dict(zip(unique_train, counts_train))}
 df_features_train = pd.DataFrame(features_train)
 df_labels_train = pd.DataFrame(labels_train, columns=['label'])
 df_train = pd.concat([df_features_train, df_labels_train], axis=1)
-df_train.to_csv(r'C:\Users\Mihalis\Desktop\NCSR AI\deep learning project\AI-Generated-Images-vs-Real-Images-Classification\features.csv', index=False)
+df_train.to_csv(r'C:\Users\Mihalis\Desktop\NCSR AI\deep learning project\AI-Generated-Images-vs-Real-Images-Classification\data\features.csv', index=False)
 
+#--------------------------------
+# Start the timer for my_test set
+start_time_test = time.time()
+
+# Extract features and labels for test set
+features_test, labels_test = extract_features(my_test_dataloader, model)
+
+# End the timer for test set
+end_time_test = time.time()
+elapsed_time_test = end_time_test - start_time_test
+
+# Convert elapsed time to hours, minutes, and seconds for test set
+hours_test, rem_test = divmod(elapsed_time_test, 3600)
+minutes_test, seconds_test = divmod(rem_test, 60)
+print(f"'My' Test set feature extraction completed in {int(hours_test)}h {int(minutes_test)}m {int(seconds_test)}s")
+
+# Verify class distribution for test set
+unique_test, counts_test = np.unique(labels_test, return_counts=True)
+print(f"'My' Test set class distribution: {dict(zip(unique_test, counts_test))}")
+
+# Convert test set features and labels to DataFrame and save to CSV
+df_features_test = pd.DataFrame(features_test)
+df_labels_test = pd.DataFrame(labels_test, columns=['label'])
+df_test = pd.concat([df_features_test, df_labels_test], axis=1)
+df_test.to_csv(r'C:\Users\Mihalis\Desktop\NCSR AI\deep learning project\AI-Generated-Images-vs-Real-Images-Classification\data\my_test_features.csv', index=False)
+
+#-----------------------------
 # Start the timer for test set
 start_time_test = time.time()
 
@@ -98,6 +130,6 @@ print(f"Test set class distribution: {dict(zip(unique_test, counts_test))}")
 df_features_test = pd.DataFrame(features_test)
 df_labels_test = pd.DataFrame(labels_test, columns=['label'])
 df_test = pd.concat([df_features_test, df_labels_test], axis=1)
-df_test.to_csv(r'C:\Users\Mihalis\Desktop\NCSR AI\deep learning project\AI-Generated-Images-vs-Real-Images-Classification\test_features.csv', index=False)
+df_test.to_csv(r'C:\Users\Mihalis\Desktop\NCSR AI\deep learning project\AI-Generated-Images-vs-Real-Images-Classification\data\test_features.csv', index=False)
 
-print("Features and labels saved to features.csv and test_features.csv")
+print("Features and labels saved to features")
