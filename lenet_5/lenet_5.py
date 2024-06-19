@@ -122,7 +122,7 @@ for epoch in range(num_epochs):
             correct += (predicted == labels).sum().item()
             all_labels.extend(labels.cpu().numpy())
             all_preds.extend(predicted.cpu().numpy())
-            all_probs.extend(outputs.softmax(dim=1)[:, 1].cpu().numpy())  # Assuming binary classification
+            all_probs.extend(outputs.softmax(dim=1)[:, 1].cpu().numpy())
 
     accuracy = 100 * correct / total
     train_losses.append(running_train_loss / len(train_loader))
