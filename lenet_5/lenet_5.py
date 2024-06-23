@@ -14,7 +14,6 @@ generator1 = torch.Generator().manual_seed(42)
 
 # Define image transformations
 transform = transforms.Compose([
-    transforms.Grayscale(),
     transforms.Resize((32, 32)),  # Resize images
     transforms.ToTensor(),  # Convert images to PyTorch tensors and normalize to [0, 1]
     transforms.Normalize((0.5,), (0.5,)) # normalize the image
@@ -34,15 +33,15 @@ train_size = int(0.8 * len(combined_dataset))
 val_size = len(combined_dataset) - train_size
 train_dataset, val_dataset = random_split(combined_dataset, [train_size, val_size], generator=generator1)
 
-train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True)
-val_loader = DataLoader(val_dataset, batch_size=32, shuffle=False)
+train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True, num_workers=2, pin_memory=True)
+val_loader = DataLoader(val_dataset, batch_size=32, shuffle=False, num_workers=2, pin_memory=True)
 
 # Lenet-5
 class lenet(nn.Module):
-    def __init__(self, num_classes=len(original_dataset.classes)):
+    def __init__(self, num_classes=2):
         super(lenet, self).__init__()
         self.layer1 = nn.Sequential(
-            nn.Conv2d(1, 6, kernel_size=5, stride=1, padding=0),
+            nn.Conv2d(3, 6, kernel_size=5, stride=1, padding=0),
             nn.BatchNorm2d(6),
             nn.ReLU(),
             nn.MaxPool2d(kernel_size=2, stride=2)
@@ -58,7 +57,7 @@ class lenet(nn.Module):
         self.fc1 = nn.Linear(120, 84)
         self.relu1 = nn.ReLU()
         self.fc2 = nn.Linear(84, num_classes)
-        
+
     def forward(self, x):
         out = self.layer1(x)
         out = self.layer2(out)
@@ -80,7 +79,7 @@ criterion = nn.CrossEntropyLoss()
 optimizer = optim.Adam(model.parameters(), lr=0.001)
 
 print('Num params: ', sum(p.numel() for p in model.parameters()))
-print(summary(model, (1, 32, 32), 32))
+print(summary(model, (3, 32, 32), 32))
 
 # Training loop
 num_epochs = 15

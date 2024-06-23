@@ -6,13 +6,13 @@ from sklearn.metrics import confusion_matrix, precision_recall_fscore_support, a
 import numpy as np
 import matplotlib.pyplot as plt
 from itertools import product
+from PIL import Image
 
-# LeNet-5 Model Definition
 class lenet(nn.Module):
-    def __init__(self, num_classes):
+    def __init__(self, num_classes=2):
         super(lenet, self).__init__()
         self.layer1 = nn.Sequential(
-            nn.Conv2d(1, 6, kernel_size=5, stride=1, padding=0),
+            nn.Conv2d(3, 6, kernel_size=5, stride=1, padding=0),
             nn.BatchNorm2d(6),
             nn.ReLU(),
             nn.MaxPool2d(kernel_size=2, stride=2)
@@ -28,7 +28,7 @@ class lenet(nn.Module):
         self.fc1 = nn.Linear(120, 84)
         self.relu1 = nn.ReLU()
         self.fc2 = nn.Linear(84, num_classes)
-        
+
     def forward(self, x):
         out = self.layer1(x)
         out = self.layer2(out)
@@ -40,41 +40,16 @@ class lenet(nn.Module):
         out = self.fc2(out)
         return out
 
-def main():
-    # Transformations
-    transform = transforms.Compose([
-        transforms.Grayscale(),
-        transforms.Resize((32, 32)),
-        transforms.ToTensor(),
-        transforms.Normalize((0.5,), (0.5,))
-    ])
-
-    # Load test dataset
-    test_dataset = datasets.ImageFolder(root=r'C:\Users\Mihalis\Desktop\NCSR AI\deep learning project\AI-Generated-Images-vs-Real-Images-Classification\data\test', transform=transform)
-    test_loader = DataLoader(test_dataset, batch_size=32, shuffle=False, num_workers=0)  # Set num_workers=0 for debugging
-
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    print(f'Evaluating on device: {device}')
-
-    # Load the trained model
-    model = lenet(num_classes=len(test_dataset.classes)).to(device)
-    print(len(test_dataset.classes))
-    model_load_path = r'C:\Users\Mihalis\Desktop\NCSR AI\deep learning project\AI-Generated-Images-vs-Real-Images-Classification\model_lenet_5.pt'
-    model.load_state_dict(torch.load(model_load_path, map_location=device))
+def evaluate_model(model, device, test_loader, dataset_classes):
     model.eval()
-    print(f'Model loaded from {model_load_path}')
-
-    #==========================
-    #  Evaluation on Test Set
-    #==========================
-
     test_correct = 0
     test_total = 0
     test_all_labels = []
     test_all_preds = []
+    misclassified_info = []
 
     with torch.no_grad():
-        for images, labels in test_loader:
+        for batch_idx, (images, labels) in enumerate(test_loader):
             images, labels = images.to(device), labels.to(device)
             outputs = model(images)
             _, predicted = torch.max(outputs, 1)
@@ -83,35 +58,100 @@ def main():
             test_all_labels.extend(labels.cpu().numpy())
             test_all_preds.extend(predicted.cpu().numpy())
 
-    # Calculate metrics for the test set
+            # Identify misclassified samples and store their info
+            for i in range(len(labels)):
+                if predicted[i] != labels[i]:
+                    misclassified_info.append({
+                        'path': test_loader.dataset.samples[(batch_idx * test_loader.batch_size) + i][0],
+                        'true_label': labels[i].cpu().numpy(),
+                        'predicted_label': predicted[i].cpu().numpy()
+                    })
+
     test_accuracy = accuracy_score(test_all_labels, test_all_preds)
     test_precision, test_recall, test_f1, _ = precision_recall_fscore_support(test_all_labels, test_all_preds, average='weighted')
     test_cm = confusion_matrix(test_all_labels, test_all_preds)
 
-    print(f'Test Accuracy: {test_accuracy:.2f}')
-    print(f'Test Precision: {test_precision:.2f}')
-    print(f'Test Recall: {test_recall:.2f}')
-    print(f'Test F1 Score: {test_f1:.2f}')
+    return test_accuracy, test_precision, test_recall, test_f1, test_cm, misclassified_info
 
-    # Plot confusion matrix for the test set
+def plot_confusion_matrix(cm, classes, title='Confusion Matrix'):
     plt.figure(figsize=(10, 7))
-    plt.imshow(test_cm, interpolation='nearest', cmap=plt.cm.Blues)
-    plt.title('Test Set Confusion Matrix')
+    plt.imshow(cm, interpolation='nearest', cmap=plt.cm.Blues)
+    plt.title(title)
     plt.colorbar()
-    tick_marks = np.arange(len(test_dataset.classes))
-    plt.xticks(tick_marks, test_dataset.classes, rotation=45)
-    plt.yticks(tick_marks, test_dataset.classes)
+    tick_marks = np.arange(len(classes))
+    plt.xticks(tick_marks, classes, rotation=45)
+    plt.yticks(tick_marks, classes)
 
-    thresh = test_cm.max() / 2.
-    for i, j in product(range(test_cm.shape[0]), range(test_cm.shape[1])):
-        plt.text(j, i, format(test_cm[i, j], 'd'),
+    thresh = cm.max() / 2.
+    for i, j in product(range(cm.shape[0]), range(cm.shape[1])):
+        plt.text(j, i, format(cm[i, j], 'd'),
                  horizontalalignment="center",
-                 color="white" if test_cm[i, j] > thresh else "black")
+                 verticalalignment="center",
+                 color="black" if cm[i, j] > thresh else "black")
 
     plt.tight_layout()
     plt.ylabel('True label')
     plt.xlabel('Predicted label')
     plt.show()
 
-if __name__ == "__main__":
-    main()
+def plot_misclassified_images(misclassified_info, dataset_classes, n_images=10):
+    plt.figure(figsize=(15, 10))
+    for idx, mis_info in enumerate(misclassified_info[:n_images]):
+        img_path = mis_info['path']
+        image = Image.open(img_path)
+        true_label = dataset_classes[mis_info['true_label']]
+        predicted_label = dataset_classes[mis_info['predicted_label']]
+
+        plt.subplot(2, n_images // 2, idx + 1)
+        plt.imshow(image)
+        plt.title(f'True: {true_label}, Pred: {predicted_label}')
+        plt.axis('off')
+    plt.show()
+
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+transform = transforms.Compose([
+    transforms.Resize((32, 32)),
+    transforms.ToTensor(),
+    transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
+])
+
+my_test_dataset = datasets.ImageFolder(root=r'/content/drive/MyDrive/my_test', transform=transform)
+my_test_loader = DataLoader(my_test_dataset, batch_size=32, shuffle=False, num_workers=2)
+
+test_data_dataset = datasets.ImageFolder(root=r'/content/drive/MyDrive/test_data', transform=transform)
+test_data_loader = DataLoader(test_data_dataset, batch_size=32, shuffle=False, num_workers=2)
+
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+print(f'Evaluating on device: {device}')
+
+# Load the trained model
+model_t_lenet = lenet(num_classes=2).to(device)
+model_load_path = r'/content/drive/MyDrive/model_lenet_5.pt'
+model_t_lenet.load_state_dict(torch.load(model_load_path, map_location=device))
+
+# Evaluation on my_test set
+print("Evaluating on my_test set:")
+my_test_accuracy, my_test_precision, my_test_recall, my_test_f1, my_test_cm, my_test_misclassified_info = evaluate_model(model_t_lenet, device, my_test_loader, my_test_dataset.classes)
+print(f'My Test Accuracy: {my_test_accuracy:.2f}')
+print(f'My Test Precision: {my_test_precision:.2f}')
+print(f'My Test Recall: {my_test_recall:.2f}')
+print(f'My Test F1 Score: {my_test_f1:.2f}')
+plot_confusion_matrix(my_test_cm, my_test_dataset.classes, title='Confusion Matrix (My Test Set)')
+
+# Plot misclassified images
+print(f'Misclassified images in my_test set:')
+plot_misclassified_images(my_test_misclassified_info, my_test_dataset.classes)
+
+# Evaluation on test_data set
+print("Evaluating on test_data set:")
+test_data_accuracy, test_data_precision, test_data_recall, test_data_f1, test_data_cm, test_data_misclassified_info = evaluate_model(model_t_lenet, device, test_data_loader, test_data_dataset.classes)
+print(f'Test Data Accuracy: {test_data_accuracy:.2f}')
+print(f'Test Data Precision: {test_data_precision:.2f}')
+print(f'Test Data Recall: {test_data_recall:.2f}')
+print(f'Test Data F1 Score: {test_data_f1:.2f}')
+plot_confusion_matrix(test_data_cm, test_data_dataset.classes, title='Confusion Matrix (Test Data Set)')
+
+# Plot misclassified images
+print(f'Misclassified images in test_data set:')
+plot_misclassified_images(test_data_misclassified_info, test_data_dataset.classes)
