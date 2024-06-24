@@ -36,9 +36,9 @@ train_dataset, val_dataset = random_split(combined_dataset, [train_size, val_siz
 train_loader = DataLoader(train_dataset, batch_size=64, shuffle=True)
 val_loader = DataLoader(val_dataset, batch_size=64, shuffle=False)
 
-class myANN(nn.Module):
+class my_cnn(nn.Module):
     def __init__(self, num_classes=2):
-        super(myANN, self).__init__()
+        super(my_cnn, self).__init__()
         self.conv1 = nn.Conv2d(3, 32, kernel_size=7, stride=1, padding=3) #256*256*32 same ----> 7x7 conv
         self.bn1 = nn.BatchNorm2d(32)
         self.relu1 = nn.ReLU()
@@ -134,17 +134,15 @@ class myANN(nn.Module):
         x = self.fc11(x)
         return x
 
-# Check for GPU availability
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print(f'Training on device: {device}')
 
-# Instantiate the model, loss function, and optimizer
-model = myANN().to(device)  # Move the model to the GPU
+model_cnn = my_cnn().to(device)
 criterion = nn.CrossEntropyLoss()
-optimizer = optim.Adam(model.parameters(), lr=0.001)
+optimizer = optim.Adam(model_cnn.parameters(), lr=0.001)
 
-print('Num params: ', sum(p.numel() for p in model.parameters()))
-print(summary(model, (3, 256, 256), 64))
+print('Num params: ', sum(p.numel() for p in model_cnn.parameters()))
+print(summary(model_cnn, (3, 256, 256), 64))
 
 # Training loop
 num_epochs = 50
@@ -154,13 +152,13 @@ val_losses = []
 
 start_time_train = time.time()
 for epoch in range(num_epochs):
-    model.train()
+    model_cnn.train()
     running_train_loss = 0.0
     for images, labels in train_loader:
         images, labels = images.to(device), labels.to(device)  # Move data to the GPU
 
         optimizer.zero_grad()  # Zero the parameter gradients
-        outputs = model(images)  # Forward pass
+        outputs = model_cnn(images)  # Forward pass
         loss = criterion(outputs, labels)  # Compute loss
         loss.backward()  # Backward pass
         optimizer.step()  # Optimize the model
@@ -168,7 +166,7 @@ for epoch in range(num_epochs):
         running_train_loss += loss.item()
 
     # Validation step
-    model.eval()
+    model_cnn.eval()
     running_val_loss = 0.0
     correct = 0
     total = 0
@@ -178,7 +176,7 @@ for epoch in range(num_epochs):
     with torch.no_grad():
         for images, labels in val_loader:
             images, labels = images.to(device), labels.to(device)
-            outputs = model(images)
+            outputs = model_cnn(images)
             loss = criterion(outputs, labels)
             running_val_loss += loss.item()
             _, predicted = torch.max(outputs, 1)
@@ -253,5 +251,5 @@ plt.show()
 
 # Save the trained model
 model_save_path = r'C:\Users\Mihalis\Desktop\NCSR AI\deep learning project\AI-Generated-Images-vs-Real-Images-Classification\model_myANN.pt'
-torch.save(model.state_dict(), model_save_path)
+torch.save(model_cnn.state_dict(), model_save_path)
 print(f'Model saved to {model_save_path}')
