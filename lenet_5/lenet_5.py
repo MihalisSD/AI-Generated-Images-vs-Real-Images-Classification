@@ -74,36 +74,38 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print(f'Training on device: {device}')
 
 # Instantiate the model, loss function, and optimizer
-model = lenet().to(device)  # Move the model to the GPU
+model_lenet = lenet().to(device)  # Move the model to the GPU
 criterion = nn.CrossEntropyLoss()
-optimizer = optim.Adam(model.parameters(), lr=0.001)
+optimizer = optim.Adam(model_lenet.parameters(), lr=0.001)
 
-print('Num params: ', sum(p.numel() for p in model.parameters()))
-print(summary(model, (3, 32, 32), 32))
+print('Num params: ', sum(p.numel() for p in model_lenet.parameters()))
+print(summary(model_lenet, (3, 32, 32), 32))
 
 # Training loop
-num_epochs = 15
+num_epochs = 30
 
 train_losses = []
 val_losses = []
+best_val_loss = float('inf')
+best_model_state = None
 
 start_time_train = time.time()
 for epoch in range(num_epochs):
-    model.train()
+    model_lenet.train()
     running_train_loss = 0.0
     for images, labels in train_loader:
-        images, labels = images.to(device), labels.to(device)  # Move data to the GPU
+        images, labels = images.to(device), labels.to(device)
 
-        optimizer.zero_grad()  # Zero the parameter gradients
-        outputs = model(images)  # Forward pass
-        loss = criterion(outputs, labels)  # Compute loss
-        loss.backward()  # Backward pass
-        optimizer.step()  # Optimize the model
+        optimizer.zero_grad()
+        outputs = model_lenet(images)
+        loss = criterion(outputs, labels)
+        loss.backward()
+        optimizer.step()
 
         running_train_loss += loss.item()
 
-    # Validation step
-    model.eval()
+    # Validation
+    model_lenet.eval()
     running_val_loss = 0.0
     correct = 0
     total = 0
@@ -113,7 +115,7 @@ for epoch in range(num_epochs):
     with torch.no_grad():
         for images, labels in val_loader:
             images, labels = images.to(device), labels.to(device)
-            outputs = model(images)
+            outputs = model_lenet(images)
             loss = criterion(outputs, labels)
             running_val_loss += loss.item()
             _, predicted = torch.max(outputs, 1)
@@ -132,12 +134,21 @@ for epoch in range(num_epochs):
           f'Validation Loss: {val_losses[-1]}, '
           f'Accuracy: {accuracy}%')
 
-# Time
+    # Save the best model
+    if val_losses[-1] < best_val_loss:
+        best_val_loss = val_losses[-1]
+        best_model_state = model_lenet.state_dict()
+
 end_time_train = time.time()
 elapsed_time_train = end_time_train - start_time_train
 hours_train, rem_train = divmod(elapsed_time_train, 3600)
 minutes_train, seconds_train = divmod(rem_train, 60)
 print(f"Training completed in :  {int(hours_train)}h {int(minutes_train)}m {int(seconds_train)}s")
+
+# Save the best model
+model_save_path = r'/content/drive/MyDrive/model_lenet_5.pt'
+torch.save(best_model_state, model_save_path)
+print(f'Model saved to {model_save_path}')
 
 # Plot training and validation loss
 plt.figure()
@@ -188,5 +199,5 @@ plt.show()
 
 # Save the trained model
 model_save_path = r'C:\Users\Mihalis\Desktop\NCSR AI\deep learning project\AI-Generated-Images-vs-Real-Images-Classification\model_lenet_5.pt'
-torch.save(model.state_dict(), model_save_path)
+torch.save(model_lenet.state_dict(), model_save_path)
 print(f'Model saved to {model_save_path}')
