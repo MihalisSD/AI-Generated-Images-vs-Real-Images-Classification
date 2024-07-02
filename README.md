@@ -14,8 +14,6 @@ Binary Classification of AI Generated Art versus Real Image art by using Deep Le
   <ol>
     <li><a href="#description">Description</a>
     <li><a href="#key-features">Key Features</a></li>
-    <li><a href="#setup-of-the-enviroment">Setup of the enviroment</a></li>
-    <li><a href="#script-execution">Script execution</a></li>
     <li><a href="#contact">Contact</a></li>
   </ol>
 </details>
@@ -35,18 +33,9 @@ Binary Classification of AI Generated Art versus Real Image art by using Deep Le
     - [AI Generated Images vs Real Images](https://www.kaggle.com/datasets/cashbowman/ai-generated-images-vs-real-images)
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
-<!-- Setup of the enviroment -->
-## Setup of the enviroment
-
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
-
-<!-- Script execution -->
-## Script execution
-
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
-
 <!-- CONTACT -->
 ## Contact
+The current saved training state of my custom CNN is not uploaded due to the file size constraints. If anyone requires the saved model to avoid training the entire network from scratch and to run the evaluation scripts, please feel free to contact me via email.
 
 Sidiropoulos Michail - mihalisid@outlook.com
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
